@@ -28,8 +28,23 @@ const player = {
     vx: 5,
     vy: 0,
     radius: 15,
-    mass: 1
+    mass: 1,
+    inverted: false
 };
+
+// Portals
+const portals = [];
+let nextPortalX = 2000;
+
+function spawnPortal(x) {
+    portals.push({
+        x: x,
+        y: terrain.getElevation(x) - 150,
+        radius: 40,
+        active: true
+    });
+}
+
 
 // Terrain (Sine-based for smooth Tiny Wings style hills)
 const terrain = {
@@ -83,7 +98,34 @@ function update() {
         
         // Project velocity along the slope constraints
         let speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
-        
+       Spawn Portals conditionally
+    if (player.x > nextPortalX - width) {
+        spawnPortal(nextPortalX);
+        nextPortalX += 3000 + Math.random() * 2000; // Random distance to next portal
+    }
+
+    // Portal Collision
+    for (let p of portals) {
+        if (!p.active) continue;
+        let dx = p.x - player.x;
+        let dy = p.y - player.y;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < p.radius + player.radius) {
+            p.active = false;
+            player.inverted = !player.inverted;
+            document.body.classList.toggle('inverted', player.inverted);
+            // new mechanic: speed boost when hitting portal
+            player.vx += 10;
+            player.vy -= 10;
+        }
+    }
+
+    // Cleanup portals behind camera
+    while (portals.length > 0 && portals[0].x < state.cameraX - 100) {
+        portals.shift();
+    }
+    
+    //  
         // Preserve speed, direct along slope
         player.vx = speed * Math.cos(angle);
         player.vy = speed * Math.sin(angle);
