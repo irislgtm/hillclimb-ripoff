@@ -28,8 +28,22 @@ const player = {
     vx: 5,
     vy: 0,
     radius: 15,
-    mass: 1
+    mass: 1,
+    inverted: false
 };
+
+// Portals
+const portals = [];
+let nextPortalX = 2000;
+
+function spawnPortal(x) {
+    portals.push({
+        x: x,
+        y: terrain.getElevation(x) - 150, // Floating above terrain
+        radius: 40,
+        active: true
+    });
+}
 
 // Terrain (Sine-based for smooth Tiny Wings style hills)
 const terrain = {
@@ -100,6 +114,36 @@ function update() {
     
     // Camera follows player
     state.cameraX = player.x - 200;
+
+    // --- Portal Logic ---
+    // Spawn portals ahead of the player
+    if (player.x > nextPortalX - width) {
+        spawnPortal(nextPortalX);
+        nextPortalX += 3000 + Math.random() * 2000;
+    }
+
+    // Process portal collisions
+    for (let p of portals) {
+        if (!p.active) continue;
+        let dx = p.x - player.x;
+        let dy = p.y - player.y;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < p.radius + player.radius) {
+            p.active = false;
+            // Invert colors
+            player.inverted = !player.inverted;
+            document.body.classList.toggle('inverted', player.inverted);
+            
+            // Apply speed boost mechanic
+            player.vx += 10;
+            player.vy -= 10;
+        }
+    }
+
+    // Cleanup passed portals
+    while (portals.length > 0 && portals[0].x < state.cameraX - 100) {
+        portals.shift();
+    }
 }
 
 function drawRoughLine(x1, y1, x2, y2, roughness = 2) {
@@ -139,6 +183,34 @@ function render() {
     ctx.beginPath();
     let startX = Math.floor(state.cameraX);
     let endX = startX + width;
+    
+    // Draw Portals
+    for (let p of portals) {
+        if (!p.active) continue;
+        ctx.strokeStyle = player.inverted ? '#3498db' : '#9b59b6'; // Sketchy purple or blue
+        ctx.lineWidth = 4;
+        let px = p.x - state.cameraX;
+        // Inner and outer sketchy swirls
+        drawRoughCircle(px, p.y, p.radius);
+        drawRoughCircle(px, p.y, p.radius * 0.7);
+        drawRoughCircle(px, p.y, p.radius * 0.4);
+        
+        ctx.beginPath();
+        for(let i=0; i<5; i++){
+            drawRoughLine(
+                px + (Math.random()-0.5)*p.radius, 
+                p.y + (Math.random()-0.5)*p.radius, 
+                px + (Math.random()-0.5)*p.radius*2, 
+                p.y + (Math.random()-0.5)*p.radius*2,
+                1
+            );
+        }
+    }
+
+    // Reset style for terrain
+    ctx.strokeStyle = '#2c3e50';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
     
     ctx.moveTo(0, height);
     
